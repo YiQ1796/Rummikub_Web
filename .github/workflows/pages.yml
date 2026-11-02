@@ -1,0 +1,46 @@
+name: Rummikub Web - Test and Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: rummikub-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Validate JavaScript and automated game rules
+        run: |
+          set -euo pipefail
+          node --check src/rules.js
+          node --check src/game.js
+          node --check src/ai.js
+          node --check src/main.js
+          node --check assets/art-config.js
+          node --test tests/*.test.mjs
+          node scripts/verify-pages.mjs
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
