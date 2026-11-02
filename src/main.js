@@ -1,4 +1,5 @@
-import { COLORS, analyzeMeld, checkTileIntegrity } from './rules.js';
+import { analyzeMeld, checkTileIntegrity } from './rules.js';
+import { orderMeldTiles, orderRackTiles } from './tile-order.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -11,6 +12,8 @@ const selected = new Set();
 let targetMeld = null;
 let pendingAi = false;
 const labels = { red: '紅', blue: '藍', yellow: '黃', black: '黑' };
+// Default numeric ordering is display-only; it never mutates game state.
+let rackSortMode = 'number';
 
 function save() {
   try {
@@ -106,7 +109,7 @@ function renderMeld(meld, index) {
   container.append(head);
   const tiles = document.createElement('div');
   tiles.className = 'tile-strip';
-  meld.forEach(tile => tiles.append(makeTile(tile, `牌桌第 ${index + 1} 組`)));
+  orderMeldTiles(meld).forEach(tile => tiles.append(makeTile(tile, `牌桌第 ${index + 1} 組`)));
   container.append(tiles);
   return container;
 }
@@ -164,7 +167,9 @@ function render() {
     empty.textContent = '暫存區是空的。';
     holding.append(empty);
   }
-  $('hand-tiles').replaceChildren(...hand.map(tile => makeTile(tile, '你的手牌')));
+  $('hand-tiles').replaceChildren(...orderRackTiles(hand, rackSortMode).map(tile => makeTile(tile, '你的手牌')));
+  $('sort-number').setAttribute('aria-pressed', String(rackSortMode === 'number'));
+  $('sort-color').setAttribute('aria-pressed', String(rackSortMode === 'color'));
   $('selection-hint').textContent = `目前選取 ${selected.size} 張牌${targetMeld === null ? '；尚未指定目標組合。' : `；目標為第 ${targetMeld + 1} 組。`}`;
   ['create-meld', 'append-meld', 'stage-tiles', 'return-hand', 'sort-number', 'sort-color', 'reset-draft', 'draw-tile', 'confirm-turn'].forEach(id => { $(id).disabled = !isHumanTurn; });
   $('append-meld').disabled = !isHumanTurn || targetMeld === null;
@@ -179,14 +184,14 @@ function edit(action) {
 }
 
 $('start-game').addEventListener('click', () => {
-  withAction(() => { match = newMatch({ seats: Number($('seat-count').value) }); });
+  withAction(() => { match = newMatch({ seats: Number($('seat-count').value) }); rackSortMode = 'number'; });
 });
 $('create-meld').addEventListener('click', () => edit('new-meld'));
 $('append-meld').addEventListener('click', () => edit('append'));
 $('stage-tiles').addEventListener('click', () => edit('stage'));
 $('return-hand').addEventListener('click', () => edit('to-hand'));
-$('sort-number').addEventListener('click', () => withAction(() => match.draft.hand.sort((a, b) => (a.number ?? 14) - (b.number ?? 14) || COLORS.indexOf(a.color) - COLORS.indexOf(b.color))));
-$('sort-color').addEventListener('click', () => withAction(() => match.draft.hand.sort((a, b) => COLORS.indexOf(a.color) - COLORS.indexOf(b.color) || (a.number ?? 14) - (b.number ?? 14))));
+$('sort-number').addEventListener('click', () => { rackSortMode = 'number'; render(); });
+$('sort-color').addEventListener('click', () => { rackSortMode = 'color'; render(); });
 $('reset-draft').addEventListener('click', () => withAction(() => resetDraft(match)));
 $('confirm-turn').addEventListener('click', () => {
   if (!match) return;
