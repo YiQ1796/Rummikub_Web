@@ -7,6 +7,7 @@ const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const required = [
   'index.html', '.nojekyll', 'assets/styles.css', 'assets/art-config.js',
   'src/main.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
+  'assets/jokers/joker_sanmao_smile.webp', 'assets/jokers/joker_sanmao_smirk.webp',
   'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs',
 ];
 for (const relativePath of required) {
@@ -18,6 +19,15 @@ assert.match(html, /type="module"\s+src="\.\/src\/main\.js"/);
 assert.match(html, /<link\s+rel="stylesheet"\s+href="\.\/assets\/styles\.css"/);
 assert.doesNotMatch(html, /<base\s+href=/i, 'Relative URLs must work on project Pages paths.');
 const config = readFileSync(resolve(root, 'assets/art-config.js'), 'utf8');
-assert.match(config, /jokerA:\s*null/);
-assert.match(config, /jokerB:\s*null/);
-console.log('PASS - independent project root, relative URL paths, and Joker placeholders');
+for (const [slot, path] of Object.entries({
+  jokerA: './assets/jokers/joker_sanmao_smile.webp',
+  jokerB: './assets/jokers/joker_sanmao_smirk.webp'
+})) {
+  assert.ok(config.includes(`${slot}: '${path}'`), `${slot} must map to the approved image`);
+  const data = readFileSync(resolve(root, path));
+  assert.ok(data.length > 1000, `${slot} artwork is too small or invalid`);
+  assert.equal(data.subarray(0, 4).toString(), 'RIFF', 'Expected WebP RIFF header');
+  assert.equal(data.subarray(8, 12).toString(), 'WEBP', 'Expected WebP format');
+}
+assert.ok(!config.includes('jokerA: null') && !config.includes('jokerB: null'));
+console.log('PASS - approved two Joker images replace placeholders, and relative URLs are valid');

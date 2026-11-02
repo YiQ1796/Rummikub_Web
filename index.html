@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#173e34">
-  <title>猴三毛拉密｜單機 AI 測試基底 V0.1.0</title>
+  <title>猴三毛拉密｜單機 AI 測試基底 V0.1.1</title>
   <link rel="stylesheet" href="./assets/styles.css">
 </head>
 <body>
   <a class="skip" href="#main">跳到遊戲</a>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">♟</span><div><strong>猴三毛拉密</strong><small>Rummikub · V0.1.0</small></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">♟</span><div><strong>猴三毛拉密</strong><small>Rummikub · V0.1.1</small></div></div>
     <div class="top-actions"><span class="beta-pill">單機 AI 測試版</span><a href="https://yiq1796.github.io/game-center/" target="_blank" rel="noopener noreferrer">返回遊戲中心</a></div>
   </header>
   <main id="main">
@@ -19,7 +19,7 @@
       <h1 id="lobby-title">動動腦，慢慢想。<br>來一局拉密吧！</h1>
       <p>1 位真人和 AI 對戰，選擇 2～4 個座位。每人 14 張牌、106 張牌池、首次出牌至少 30 分；<strong>完全沒有思考倒數限制</strong>。</p>
       <div class="lobby-controls"><label for="seat-count">總玩家人數</label><select id="seat-count"><option value="2">2 人（你＋1 AI）</option><option value="3">3 人（你＋2 AI）</option><option value="4" selected>4 人（你＋3 AI）</option></select><button class="btn primary" id="start-game">開始單機對局</button></div>
-      <p class="disclaimer">此版先提供本機真人對 AI 的規則與操作測試，不含真人跨網連線；正式美術圖尚未匯入。</p>
+      <p class="disclaimer">此版先提供本機真人對 AI 的規則與操作測試，不含真人跨網連線；兩張猴三毛 Joker 頭像已匯入；其他介面仍為測試版。</p>
     </section>
     <section id="game" class="game hidden" aria-label="拉密遊戲區">
       <div class="dashboard panel"><div><span class="eyebrow">牌桌資訊</span><h2 id="turn-label">你的回合</h2><p id="game-message" role="status" aria-live="polite"></p></div><div class="dashboard-stats"><div><small>牌池</small><strong id="pool-count">—</strong></div><div><small>牌桌</small><strong id="table-count">—</strong></div><div><small>已進行回合</small><strong id="round-count">—</strong></div></div></div>
@@ -35,7 +35,7 @@
       <div class="bottom-row"><button type="button" class="btn subtle" id="new-game">重新開局</button><details class="help"><summary>操作說明與規則</summary><p>點選多張牌，再點「建立新牌組」；點牌組的「指定為目標」後可把選牌加入該組。可先拆解桌面牌組，重新組合後再確認。只有按下「確認出牌」才會提交變更。</p><p>群組：3～4 張不同顏色的同點數；順組：3 張以上相同顏色的連續數字。首次出牌須只用自己的牌，合計至少 30 分。鬼牌可以代替符合規則的數字牌。</p><p>沒有倒數計時。無法出牌可抽 1 張並結束；確認無效的排牌若選擇接受失誤處罰，會還原並罰抽最多 3 張。正式 Joker 交換細節與真人連線仍待後續完善。</p></details></div>
     </section>
   </main>
-  <script src="./assets/art-config.js"></script>
+  <script src="./assets/art-config.js?v=011"></script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
