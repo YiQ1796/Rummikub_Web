@@ -1,5 +1,6 @@
 import { analyzeMeld, checkTileIntegrity } from './rules.js';
 import { orderMeldTiles, orderRackTiles } from './tile-order.js';
+import { describeMatchResult, formatSignedScore } from './match-result.js';
 import { OnlineController } from './online-controller.js';
 import { validRoomCode } from './online-core.js';
 import {
@@ -15,6 +16,7 @@ let targetMeld = null;
 let pendingAi = false;
 const labels = { red: '紅', blue: '藍', yellow: '黃', black: '黑' };
 let rackSortMode = 'number';
+let lastAnnouncedResult = null;
 const incomingRoom = new URLSearchParams(window.location.search).get('room');
 const online = new OnlineController({
   onMatch(next) { match = next; selected.clear(); targetMeld = null; render(); scheduleAi(); },
@@ -157,6 +159,44 @@ function renderMeld(meld, index) {
   return container;
 }
 
+/* The dialog is a view of the final score, never an additional game-state write. */
+function showResultDialog(result) {
+  $('result-title').textContent = result.headline;
+  $('result-detail').textContent = result.detail;
+  $('result-scores').replaceChildren(...result.ranking.map(entry => {
+    const item = document.createElement('li');
+    item.className = `result-score-row${entry.isWinner ? ' result-score-winner' : ''}`;
+    const name = document.createElement('span');
+    name.textContent = `${entry.isWinner ? '🏆 ' : ''}${entry.name}${entry.isYou ? '（你）' : ''}`;
+    const points = document.createElement('strong');
+    points.textContent = formatSignedScore(entry.score);
+    item.append(name, points);
+    return item;
+  }));
+  $('result-new-game').textContent = online.active ? '離開房間' : '重新開局';
+  $('result-overlay').classList.remove('hidden');
+  document.body.classList.add('result-modal-open');
+  $('result-dialog').focus();
+}
+function hideResultDialog() {
+  $('result-overlay').classList.add('hidden');
+  document.body.classList.remove('result-modal-open');
+}
+function renderMatchResult() {
+  const result = describeMatchResult(match, online.seat);
+  $('result-banner').classList.toggle('hidden', !result);
+  if (!result) {
+    lastAnnouncedResult = null;
+    hideResultDialog();
+    return;
+  }
+  $('result-banner-text').textContent = `🏆 ${result.headline} 點選查看完整分數`;
+  const key = `${online.active ? online.code : 'solo'}:${result.key}`;
+  if (lastAnnouncedResult !== key) {
+    lastAnnouncedResult = key;
+    showResultDialog(result);
+  }
+}
 function renderPlayers() {
   const players = $('players');
   players.replaceChildren();
@@ -177,7 +217,7 @@ function render() {
   renderOnlineRoom();
   $('lobby').classList.toggle('hidden', Boolean(match));
   $('game').classList.toggle('hidden', !match);
-  if (!match) return;
+  if (!match) { renderMatchResult(); return; }
   $('online-game-bar').classList.toggle('hidden', !online.active);
   if (online.active) $('online-room-label').textContent = `房間 ${online.code} ｜座位 ${online.seat + 1}`;
   $('new-game').textContent = online.active ? '離開房間' : '重新開局';
@@ -225,12 +265,31 @@ function render() {
     const scores = match.players.map((p, i) => `${p.name} ${match.scores[i] > 0 ? '+' : ''}${match.scores[i]} 分`).join('　｜　');
     $('game-message').textContent = `${match.message}　${scores}`;
   }
+  renderMatchResult();
 }
 
 function edit(action) {
   withAction(() => editDraft(match, { action, ids: [...selected], targetIndex: targetMeld }));
 }
 
+$('result-close').addEventListener('click', () => {
+  hideResultDialog();
+  $('result-show').focus();
+});
+$('result-show').addEventListener('click', () => {
+  const result = describeMatchResult(match, online.seat);
+  if (result) showResultDialog(result);
+});
+$('result-new-game').addEventListener('click', () => {
+  hideResultDialog();
+  $('new-game').click();
+});
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !$('result-overlay').classList.contains('hidden')) {
+    hideResultDialog();
+    $('result-show').focus();
+  }
+});
 $('start-game').addEventListener('click', () => {
   if (online.active) return;
   withAction(() => { match = newMatch({ seats: Number($('seat-count').value) }); rackSortMode = 'number'; });

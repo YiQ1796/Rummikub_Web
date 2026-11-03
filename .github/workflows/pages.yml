@@ -30,6 +30,7 @@ jobs:
           node --check src/game.js
           node --check src/ai.js
           node --check src/main.js
+          node --check src/match-result.js
           node --check src/tile-order.js
           node --check src/online-core.js
           node --check src/peer-room.js

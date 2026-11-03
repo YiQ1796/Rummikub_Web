@@ -17,3 +17,22 @@
 .online-game-bar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 14px}
 .online-game-bar strong{color:#284c41}.online-game-bar span{flex:1 1 180px;font-size:.82rem;color:#526456}
 @media(max-width:850px){.online-lobby{padding:12px}.online-lobby-actions>*{flex:1 1 110px}.online-game-bar{padding:10px}.online-game-bar .btn{flex:1 1 125px}.online-game-bar span{flex-basis:100%}}
+
+/* V0.2.1 — responsive victory announcement, no new image asset required. */
+.result-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 18px;background:#fff1cc;border:2px solid #c69341;border-radius:15px;color:#594017;box-shadow:0 5px 16px #3c240920}
+.result-banner strong{font-size:1.08rem}.result-banner .btn{white-space:nowrap}
+.result-modal-open{overflow:hidden}
+.result-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(18px + env(safe-area-inset-bottom,0px));background:#0c231bdc;overflow-y:auto}
+.result-dialog{width:min(100%,520px);max-height:calc(100dvh - 44px);overflow:auto;background:#fff9ea;border:4px solid #c9a45e;border-radius:22px;box-shadow:0 24px 80px #07170fcc;padding:24px clamp(18px,4vw,32px);text-align:center;outline:none}
+.result-cup{font-size:3.8rem;line-height:1.2;margin:0 0 8px}
+.result-eyebrow{font-size:.75rem;color:#98743e;font-weight:900;letter-spacing:.1em;margin:0 0 8px}
+.result-dialog h2{font-size:clamp(1.7rem,5vw,2.5rem);line-height:1.25;color:#17483a;margin:0 0 10px}
+.result-dialog>p#result-detail{font-size:.95rem;color:#4d5e4e;margin:6px 0 18px}
+.result-dialog h3{font-size:1rem;color:#594723;text-align:left;margin:0 0 10px}
+.result-scores{padding:0;margin:0 0 20px;list-style:none;display:grid;gap:8px}
+.result-score-row{display:flex;align-items:center;justify-content:space-between;gap:15px;text-align:left;padding:10px 12px;border:1px solid #e1d2b3;border-radius:10px;background:#f4ead5}
+.result-score-row strong{font-variant-numeric:tabular-nums;white-space:nowrap}
+.result-score-winner{border-color:#d5a552;background:#f7e2ad;color:#644513;font-weight:900}
+.result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}.result-buttons .btn{min-height:46px}
+@media(max-width:450px){.result-banner{padding:10px 12px}.result-banner strong{font-size:.94rem}.result-dialog{padding:20px 14px;border-width:3px}.result-cup{font-size:3rem}.result-buttons{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.result-dialog,.result-overlay{animation:none}}
