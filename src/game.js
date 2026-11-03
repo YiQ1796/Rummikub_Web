@@ -47,7 +47,7 @@ export function createDraft(state) {
 }
 
 function requireHumanTurn(state) {
-  if (state.status !== 'playing' || state.currentSeat !== 0 || !state.draft) throw new Error('目前不是你的回合。');
+  if (state.status !== 'playing' || state.players[state.currentSeat]?.isAi || !state.draft) throw new Error('目前不是你的回合。');
 }
 
 function allDraftTiles(draft) {
@@ -109,7 +109,7 @@ export function inspectDraft(state) {
   const { draft, players } = state;
   if (draft.staging.length) return { ok: false, error: `暫存區還有 ${draft.staging.length} 張牌沒有放回合法組合。` };
   const actual = allDraftTiles(draft);
-  const before = [...players[0].hand, ...state.board.flat()];
+  const before = [...players[state.currentSeat].hand, ...state.board.flat()];
   if (!setEquals(actual.map(tile => tile.id), before.map(tile => tile.id))) {
     return { ok: false, error: '排牌過程有重複或遺失的牌。' };
   }
@@ -121,7 +121,7 @@ export function inspectDraft(state) {
   const played = new Set(playedIds);
   const onTable = new Set(draft.board.flat().map(tile => tile.id));
   if (playedIds.some(id => !onTable.has(id))) return { ok: false, error: '打出的手牌必須全部在合法牌組裡。' };
-  if (!players[0].opened) {
+  if (!players[state.currentSeat].opened) {
     // During the opening, older board melds cannot be altered, split or reused.
     const originals = draft.originalBoard;
     if (draft.board.length < originals.length || originals.some((oldMeld, index) => !setEquals(oldMeld, draft.board[index].map(tile => tile.id)))) {
@@ -172,10 +172,11 @@ export function commitHumanTurn(state) {
   const validation = inspectDraft(state);
   if (!validation.ok) return validation;
   state.board = state.draft.board.map(meld => [...meld]);
-  state.players[0].hand = [...state.draft.hand];
-  state.players[0].opened = true;
+  const seat = state.currentSeat;
+  state.players[seat].hand = [...state.draft.hand];
+  state.players[seat].opened = true;
   const count = validation.playedCount;
-  completeTurn(state, 0, true);
+  completeTurn(state, seat, true);
   if (state.status === 'playing') state.message = `你成功打出 ${count} 張牌。`;
   return { ok: true, playedCount: count };
 }
@@ -188,8 +189,9 @@ function drawTiles(state, seat, count) {
 
 export function drawAndEndHumanTurn(state, penalty = false) {
   requireHumanTurn(state);
-  const amount = drawTiles(state, 0, penalty ? 3 : 1);
-  completeTurn(state, 0, false);
+  const seat = state.currentSeat;
+  const amount = drawTiles(state, seat, penalty ? 3 : 1);
+  completeTurn(state, seat, false);
   if (state.status === 'playing') state.message = penalty
     ? `無效出牌，已還原牌桌並罰抽 ${amount} 張。`
     : amount ? '你抽取 1 張牌，回合結束。' : '牌池已空，跳過回合。';

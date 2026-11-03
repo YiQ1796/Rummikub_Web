@@ -6,15 +6,19 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const required = [
   'index.html', '.nojekyll', 'assets/styles.css', 'assets/art-config.js',
-  'src/main.js', 'src/tile-order.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
+  'src/main.js', 'src/tile-order.js', 'src/online-core.js', 'src/peer-room.js', 'src/online-controller.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
   'assets/jokers/joker_sanmao_smile.webp', 'assets/jokers/joker_sanmao_smirk.webp',
-  'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/tile-order.test.mjs',
+  'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/online-core.test.mjs', 'tests/online-integration.test.mjs', 'tests/tile-order.test.mjs',
 ];
 for (const relativePath of required) {
   assert.ok(existsSync(resolve(root, relativePath)), `Missing deploy file: ${relativePath}`);
 }
 const html = readFileSync(resolve(root, 'index.html'), 'utf8');
 assert.match(html, /猴三毛拉密/);
+assert.match(html, /peerjs@1\.5\.5/);
+assert.match(html, /id="create-room"/);
+assert.match(html, /id="join-room"/);
+assert.match(html, /id="host-start"/);
 assert.match(html, /type="module"\s+src="\.\/src\/main\.js(?:\?v=\d+)?"/);
 assert.match(html, /<link\s+rel="stylesheet"\s+href="\.\/assets\/styles\.css(?:\?v=\d+)?"/);
 assert.doesNotMatch(html, /<base\s+href=/i, 'Relative URLs must work on project Pages paths.');

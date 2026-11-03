@@ -1,5 +1,7 @@
 import { analyzeMeld, checkTileIntegrity } from './rules.js';
 import { orderMeldTiles, orderRackTiles } from './tile-order.js';
+import { OnlineController } from './online-controller.js';
+import { validRoomCode } from './online-core.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -12,12 +14,52 @@ const selected = new Set();
 let targetMeld = null;
 let pendingAi = false;
 const labels = { red: '紅', blue: '藍', yellow: '黃', black: '黑' };
-// Default numeric ordering is display-only; it never mutates game state.
 let rackSortMode = 'number';
+const incomingRoom = new URLSearchParams(window.location.search).get('room');
+const online = new OnlineController({
+  onMatch(next) { match = next; selected.clear(); targetMeld = null; render(); scheduleAi(); },
+  onStatus(message) { updateOnlineStatus(message); renderOnlineRoom(); }
+});
+
+function updateOnlineStatus(message) {
+  const status = $('online-status');
+  if (status) status.textContent = message;
+  const gameStatus = $('online-game-status');
+  if (gameStatus) gameStatus.textContent = message;
+}
+
+function renderOnlineRoom() {
+  const summary = $('room-summary');
+  const hasRoom = online.active;
+  summary.classList.toggle('hidden', !hasRoom);
+  $('start-game').disabled = hasRoom;
+  $('create-room').disabled = hasRoom;
+  $('join-room').disabled = hasRoom;
+  if (!hasRoom) return;
+  $('room-code').textContent = online.code;
+  $('room-seat-label').textContent = online.isHost ? '｜你是房主' : `｜第 ${online.seat + 1} 位玩家`;
+  const members = online.members.map(m => `${m.name}（${m.connected ? '在線' : '離線'}）`).join('、');
+  $('room-members').textContent = `${members}｜未加入的座位會由 AI 補齊`;
+  $('host-start').classList.toggle('hidden', !online.isHost || online.room?.phase !== 'lobby');
+  $('room-reconnect').classList.toggle('hidden', online.isHost);
+}
+
+async function copyInvite() {
+  if (!online.active) return;
+  const link = online.inviteUrl();
+  try {
+    await navigator.clipboard.writeText(link);
+    updateOnlineStatus('已複製邀請網址，可以傳給朋友。');
+  } catch {
+    window.prompt('複製下面的邀請網址', link);
+  }
+}
+
 
 function save() {
   try {
-    if (match) localStorage.setItem(SAVE_KEY, JSON.stringify(match));
+    if (online.isHost) online.persistHost();
+    else if (!online.active && match) localStorage.setItem(SAVE_KEY, JSON.stringify(match));
   } catch (error) {
     showError('瀏覽器無法保存進度，重新整理後可能會遺失此局。');
   }
@@ -29,13 +71,14 @@ function showError(message) {
   status.classList.add('error');
 }
 
-function withAction(operation) {
+function withAction(operation, publishTurn = false) {
   try {
     operation();
     selected.clear();
     targetMeld = null;
     $('game-message').classList.remove('error');
     save();
+    if (publishTurn && online.isHost && online.room?.phase === 'playing') online.announceLocalTurn();
     render();
     scheduleAi();
   } catch (error) {
@@ -76,7 +119,7 @@ function makeTile(tile, location) {
     button.append(numeral);
   }
   button.addEventListener('click', () => {
-    if (!match || match.currentSeat !== 0 || match.status !== 'playing') return;
+    if (!match || match.currentSeat !== online.seat || match.status !== 'playing' || (online.active && (!online.connected || online.pending))) return;
     selected.has(tile.id) ? selected.delete(tile.id) : selected.add(tile.id);
     render();
   });
@@ -123,31 +166,36 @@ function renderPlayers() {
     const title = document.createElement('strong');
     title.textContent = `${player.isAi ? '▣' : '♟'} ${player.name}`;
     const count = document.createElement('span');
-    count.textContent = `${player.hand.length} 張${player.opened ? ' · 已破冰' : ' · 未破冰'}`;
+    const onlineMember = online.members.find(item => item.seat === index);
+    count.textContent = `${player.handCount ?? player.hand.length} 張${player.opened ? ' · 已破冰' : ' · 未破冰'}${onlineMember && !onlineMember.connected ? ' · 離線' : ''}`;
     box.append(title, count);
     players.append(box);
   });
 }
 
 function render() {
+  renderOnlineRoom();
   $('lobby').classList.toggle('hidden', Boolean(match));
   $('game').classList.toggle('hidden', !match);
   if (!match) return;
+  $('online-game-bar').classList.toggle('hidden', !online.active);
+  if (online.active) $('online-room-label').textContent = `房間 ${online.code} ｜座位 ${online.seat + 1}`;
+  $('new-game').textContent = online.active ? '離開房間' : '重新開局';
   renderPlayers();
   const stats = gameStats(match);
-  $('pool-count').textContent = String(stats.inPool);
+  $('pool-count').textContent = String(match.poolCount ?? stats.inPool);
   $('table-count').textContent = String(stats.onTable);
   $('round-count').textContent = String(match.round);
-  $('turn-label').textContent = match.status === 'finished' ? '本局結束' : match.currentSeat === 0 ? '你的回合 · 無時間限制' : `${match.players[match.currentSeat].name} 思考中`;
+  $('turn-label').textContent = match.status === 'finished' ? '本局結束' : match.currentSeat === online.seat ? '你的回合 · 無時間限制' : `${match.players[match.currentSeat].name} 思考中`;
   $('game-message').textContent = match.message;
 
-  const isHumanTurn = match.status === 'playing' && match.currentSeat === 0;
+  const isHumanTurn = match.status === 'playing' && match.currentSeat === online.seat && (!online.active || (online.connected && !online.pending));
   const draft = isHumanTurn ? match.draft : null;
   const board = draft ? draft.board : match.board;
-  const hand = draft ? draft.hand : match.players[0].hand;
+  const hand = draft ? draft.hand : match.players[online.seat].hand;
   const staging = draft ? draft.staging : [];
   $('hand-count').textContent = `（${hand.length} 張）`;
-  $('opening-hint').textContent = match.players[0].opened
+  $('opening-hint').textContent = match.players[online.seat].opened
     ? '已破冰：可拆解並重組桌面，確認前所有牌組須合法。'
     : '尚未破冰：只能使用自己的牌，首次出牌至少 30 分。';
   const table = $('table-melds');
@@ -184,8 +232,32 @@ function edit(action) {
 }
 
 $('start-game').addEventListener('click', () => {
+  if (online.active) return;
   withAction(() => { match = newMatch({ seats: Number($('seat-count').value) }); rackSortMode = 'number'; });
 });
+$('create-room').addEventListener('click', async () => {
+  try { await online.host(Number($('seat-count').value), $('online-name').value); }
+  catch (error) { updateOnlineStatus(error.message); }
+});
+$('join-room').addEventListener('click', async () => {
+  try { await online.join($('join-code').value.trim(), $('online-name').value); }
+  catch (error) { updateOnlineStatus(error.message); }
+});
+$('host-start').addEventListener('click', () => {
+  try { online.start(); } catch (error) { updateOnlineStatus(error.message); }
+});
+$('copy-invite').addEventListener('click', copyInvite);
+$('online-copy-invite').addEventListener('click', copyInvite);
+$('room-reconnect').addEventListener('click', () => online.reconnect());
+$('online-reconnect').addEventListener('click', () => online.reconnect());
+$('room-leave').addEventListener('click', () => { online.leave(); match = null; render(); updateOnlineStatus('已離開房間。'); });
+$('online-ai-takeover').addEventListener('click', () => {
+  if (!online.isHost || !window.confirm('將已斷線的真人座位交給 AI？對方將無法回到該座位。')) return;
+  const count = online.takeoverDisconnected();
+  updateOnlineStatus(count ? `已由 AI 接手 ${count} 位離線玩家。` : '目前沒有需要接手的離線玩家。');
+  scheduleAi();
+});
+
 $('create-meld').addEventListener('click', () => edit('new-meld'));
 $('append-meld').addEventListener('click', () => edit('append'));
 $('stage-tiles').addEventListener('click', () => edit('stage'));
@@ -199,20 +271,27 @@ $('confirm-turn').addEventListener('click', () => {
   if (!report.ok) {
     showError(report.error);
     if (window.confirm(`${report.error}\n\n要依失誤規則還原桌面，並罰抽最多 3 張結束回合嗎？\n按「取消」可繼續整理牌面。`)) {
-      withAction(() => drawAndEndHumanTurn(match, true));
+      if (online.active && !online.isHost) {
+        try { online.sendTurn('penalty'); render(); } catch (error) { showError(error.message); }
+      } else withAction(() => drawAndEndHumanTurn(match, true), true);
     }
     return;
   }
-  withAction(() => commitHumanTurn(match));
+  if (online.active && !online.isHost) {
+    try { online.sendTurn('confirm', match.draft); render(); } catch (error) { showError(error.message); }
+  } else withAction(() => commitHumanTurn(match), true);
 });
 $('draw-tile').addEventListener('click', () => {
   if (!match) return;
   const changed = JSON.stringify(match.draft.board) !== JSON.stringify(match.board) || match.draft.staging.length;
   if (changed && !window.confirm('你已經移動了牌。要放棄本回合的排牌、抽牌並結束嗎？')) return;
-  withAction(() => drawAndEndHumanTurn(match));
+  if (online.active && !online.isHost) {
+    try { online.sendTurn('draw'); render(); } catch (error) { showError(error.message); }
+  } else withAction(() => drawAndEndHumanTurn(match), true);
 });
 $('new-game').addEventListener('click', () => {
-  if (!window.confirm('確定放棄目前這局，重新選擇玩家人數嗎？')) return;
+  if (!window.confirm(online.active ? '離開多人房間？如果你是房主，所有好友會失去房間連線。' : '確定放棄目前這局，重新選擇玩家人數嗎？')) return;
+  if (online.active) online.leave();
   try { localStorage.removeItem(SAVE_KEY); } catch (_) { /* Storage can be disabled. */ }
   match = null;
   selected.clear();
@@ -220,19 +299,21 @@ $('new-game').addEventListener('click', () => {
 });
 
 function scheduleAi() {
-  if (pendingAi || !match || match.status !== 'playing' || match.currentSeat === 0) return;
+  if (pendingAi || !match || match.status !== 'playing' || match.currentSeat === online.seat || (online.active && !online.isHost)) return;
+  if (!match.players[match.currentSeat]?.isAi) return;
   pendingAi = true;
   // A short animation pause is NOT a turn timer. Human thinking is unrestricted.
   setTimeout(() => {
     pendingAi = false;
-    if (!match || match.status !== 'playing' || match.currentSeat === 0) return;
-    withAction(() => runAiTurn(match));
+    if (!match || match.status !== 'playing' || match.currentSeat === online.seat || (online.active && !online.isHost)) return;
+    if (!match.players[match.currentSeat]?.isAi) return;
+    withAction(() => runAiTurn(match), true);
   }, 420);
 }
 
 try {
   const saved = localStorage.getItem(SAVE_KEY);
-  if (saved) {
+  if (saved && !incomingRoom && !online.hasStoredHost) {
     const parsed = JSON.parse(saved);
     if (isValidSavedState(parsed)) match = parsed;
     else localStorage.removeItem(SAVE_KEY);
@@ -243,3 +324,10 @@ try {
 if (match && !checkTileIntegrity(match)) match = null;
 render();
 scheduleAi();
+if (validRoomCode(incomingRoom)) {
+  $('join-code').value = incomingRoom;
+  online.join(incomingRoom, $('online-name').value).catch(error => updateOnlineStatus(error.message));
+} else if (!match) {
+  online.restoreHost().catch(error => updateOnlineStatus(error.message));
+}
+
