@@ -59,3 +59,31 @@ test('host/guest: join lobby, AI fill, private hand, guest turn, reconnect same 
   host.leave();
   guest.leave();
 });
+
+
+test('fast welcome keeps success state instead of reverting to searching message', async () => {
+  let guest, channel;
+  const host = new OnlineController({ onMatch: () => {}, onStatus: () => {} });
+  guest = new OnlineController({ onMatch: () => {}, onStatus: () => {} });
+  host.createTransport = () => ({
+    host: async () => {}, close: () => {},
+    sendHost: (conn, msg) => { guest.receiveGuestMessage(structuredClone(msg)); return true; }
+  });
+  guest.createTransport = () => ({
+    join: async () => {
+      channel = { open: true, close: () => {} };
+      guest.sendHello();
+    },
+    close: () => {},
+    sendGuest: msg => { host.receiveHostMessage(structuredClone(msg), channel); return true; }
+  });
+  await host.host(3, '房主');
+  await guest.join(host.code, '玩家二');
+  assert.equal(guest.connected, true);
+  assert.equal(guest.seat, 1);
+  assert.match(guest.lastStatus, /已進入房間/);
+  guest.receiveGuestMessage({ type: 'error', message: '房主拒絕加入' });
+  assert.equal(guest.connected, false);
+  assert.match(guest.lastStatus, /拒絕/);
+  guest.leave(); host.leave();
+});

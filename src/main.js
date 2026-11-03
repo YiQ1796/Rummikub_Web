@@ -3,6 +3,7 @@ import { orderMeldTiles, orderRackTiles } from './tile-order.js';
 import { describeMatchResult, formatSignedScore } from './match-result.js';
 import { OnlineController } from './online-controller.js';
 import { validRoomCode } from './online-core.js';
+import { describeRoomJoin } from './room-join-status.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -31,19 +32,32 @@ function updateOnlineStatus(message) {
 }
 
 function renderOnlineRoom() {
-  const summary = $('room-summary');
   const hasRoom = online.active;
+  const summary = $('room-summary');
   summary.classList.toggle('hidden', !hasRoom);
+  // After joining, hide the original entry controls; a greyed-out Join button
+  // looked like a failure even when the guest had already been assigned a seat.
+  $('create-room').classList.toggle('hidden', hasRoom);
+  $('join-room').classList.toggle('hidden', hasRoom);
+  $('join-code').closest('.room-code-input').classList.toggle('hidden', hasRoom);
   $('start-game').disabled = hasRoom;
-  $('create-room').disabled = hasRoom;
-  $('join-room').disabled = hasRoom;
   if (!hasRoom) return;
+  const phase = online.isHost ? online.room?.phase : online.view?.phase;
+  const display = describeRoomJoin({
+    active:hasRoom, isHost:online.isHost, connected:online.connected,
+    seat:online.seat, phase, lastStatus:online.lastStatus
+  });
   $('room-code').textContent = online.code;
-  $('room-seat-label').textContent = online.isHost ? '｜你是房主' : `｜第 ${online.seat + 1} 位玩家`;
+  $('room-seat-label').textContent = display.seatLabel;
+  const status = $('room-join-state');
+  status.textContent = display.notice;
+  status.className = `room-join-state ${display.kind}`;
   const members = online.members.map(m => `${m.name}（${m.connected ? '在線' : '離線'}）`).join('、');
-  $('room-members').textContent = `${members}｜未加入的座位會由 AI 補齊`;
+  $('room-members').textContent = members
+    ? `${members}｜未加入的座位會由 AI 補齊`
+    : '正在取得房主的玩家名單，尚未確認入座。';
   $('host-start').classList.toggle('hidden', !online.isHost || online.room?.phase !== 'lobby');
-  $('room-reconnect').classList.toggle('hidden', online.isHost);
+  $('room-reconnect').classList.toggle('hidden', !display.canRetry);
 }
 
 async function copyInvite() {

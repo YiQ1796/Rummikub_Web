@@ -157,8 +157,15 @@ export class OnlineController {
     safeWrite(key, this.token);
     this.transport = this.createTransport();
     this.knownRevision = -1;
-    await this.transport.join(code);
+    // Emit before joining: a fast successful handshake must not be overwritten
+    // by a stale "searching host" message after the join Promise resolves.
     this.emit('正在搜尋房主，請確認房號與網路連線。');
+    try {
+      await this.transport.join(code);
+    } catch (error) {
+      this.leave();
+      throw error;
+    }
   }
   sendHello() {
     if (!this.isHost && this.mode === 'guest') this.transport.sendGuest({ type: 'hello', protocol: ROOM_PROTOCOL, token: this.token, name: this.name });
@@ -212,6 +219,8 @@ export class OnlineController {
   receiveGuestMessage(msg) {
     if (this.mode !== 'guest' || !msg || typeof msg !== 'object') return;
     if (msg.type === 'error') {
+      this.connected = false;
+      this.pending = false;
       this.emit(msg.message || '加入房間失敗');
       return;
     }

@@ -36,3 +36,10 @@
 .result-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px}.result-buttons .btn{min-height:46px}
 @media(max-width:450px){.result-banner{padding:10px 12px}.result-banner strong{font-size:.94rem}.result-dialog{padding:20px 14px;border-width:3px}.result-cup{font-size:3rem}.result-buttons{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.result-dialog,.result-overlay{animation:none}}
+
+/* V0.2.2: room join acknowledgement and connection diagnostics. */
+.room-join-state{font-weight:800;line-height:1.6;padding:12px 14px;border-radius:10px;border:1px solid transparent}
+.room-join-state.ready{color:#16523b;background:#e7f3e4;border-color:#a4c69c}
+.room-join-state.waiting{color:#70531a;background:#fff1d7;border-color:#e0c587}
+.room-join-state.problem{color:#8c2c23;background:#fff0ed;border-color:#dca79f}
+@media(max-width:850px){.room-join-state{font-size:.93rem;padding:11px}}
