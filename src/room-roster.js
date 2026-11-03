@@ -1,6 +1,8 @@
+import { FIXED_PLAYER_COUNT } from './fixed-game-config.js';
+
 /** Build a display-only seat list from the trusted room roster (never modifies room state). */
 export function describeRoomRoster({ members = [], seats, viewerSeat = 0 } = {}) {
-  if (!Number.isInteger(seats) || seats < 2 || seats > 4 || !Array.isArray(members)) {
+  if (seats !== FIXED_PLAYER_COUNT || !Array.isArray(members)) {
     return { ready: false, slots: [], realPlayers: 0, futureAi: 0, capacity: 0 };
   }
   const memberBySeat = new Map();

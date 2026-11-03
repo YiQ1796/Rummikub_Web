@@ -77,7 +77,7 @@ test('fast welcome keeps success state instead of reverting to searching message
     close: () => {},
     sendGuest: msg => { host.receiveHostMessage(structuredClone(msg), channel); return true; }
   });
-  await host.host(3, '房主');
+  await host.host(4, '房主');
   await guest.join(host.code, '玩家二');
   assert.equal(guest.connected, true);
   assert.equal(guest.seat, 1);

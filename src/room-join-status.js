@@ -5,7 +5,7 @@ export function describeRoomJoin({ active=false, isHost=false, connected=false,
   if (isHost) return {
     kind:'ready', seatLabel:'｜你是房主', canRetry:false,
     notice: phase === 'lobby'
-      ? '✅ 房間已建立。好友進房後，由你按「開始多人對局（空位補 AI）」。'
+      ? '✅ 房間已建立。好友進房後，由你按「開始四人對局（空位補 AI）」。'
       : '✅ 多人對局已開始。'
   };
   if (!connected) {

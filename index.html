@@ -4,21 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#173e34">
-  <title>猴三毛拉密｜單機 AI 測試基底 V0.2.3</title>
-  <link rel="stylesheet" href="./assets/styles.css?v=023">
+  <link rel="canonical" href="https://yiq1796.github.io/Rummikub_Web/">
+  <title>猴三毛拉密｜單機 AI 測試基底 V0.2.4</title>
+  <link rel="stylesheet" href="./assets/styles.css?v=024">
 </head>
 <body>
   <a class="skip" href="#main">跳到遊戲</a>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">♟</span><div><strong>猴三毛拉密</strong><small>Rummikub · V0.2.3</small></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">♟</span><div><strong>猴三毛拉密</strong><small>Rummikub · V0.2.4</small></div></div>
     <div class="top-actions"><span class="beta-pill">單機／多人 AI 測試版</span><a href="https://yiq1796.github.io/game-center/" target="_blank" rel="noopener noreferrer">返回遊戲中心</a></div>
   </header>
   <main id="main">
     <section id="lobby" class="lobby panel" aria-labelledby="lobby-title">
       <p class="eyebrow">SANMAO'S RUMMIKUB</p>
       <h1 id="lobby-title">動動腦，慢慢想。<br>來一局拉密吧！</h1>
-      <p>單機可與 AI 對戰；多人房間可邀請真人，空位由 AI 補齊。每人 14 張牌、106 張牌池、首次出牌至少 30 分；<strong>完全沒有思考倒數限制</strong>。</p>
-      <div class="lobby-controls"><label for="seat-count">總玩家人數</label><select id="seat-count"><option value="2">2 人（你＋1 AI）</option><option value="3">3 人（你＋2 AI）</option><option value="4" selected>4 人（你＋3 AI）</option></select><button class="btn primary" id="start-game">開始單機對局</button></div>
+      <p>固定四人對局：單機為你與 3 位 AI，多人可邀請最多 3 位好友，未加入的座位開局時由 AI 補齊。每人 14 張牌、106 張牌池、首次出牌至少 30 分；<strong>完全沒有思考倒數限制</strong>。</p>
+      <div class="lobby-controls"><div class="fixed-player-label"><strong>固定 4 人對局</strong><span>單機：1 真人 + 3 AI｜多人：1～4 真人，其餘 AI 補滿</span></div><button class="btn primary" id="start-game">開始單機對局</button></div>
       <section class="online-lobby" aria-label="好友連線">
         <h2>好友連線 · 真人不足 AI 補位</h2>
         <label for="online-name">你的暱稱</label>
@@ -37,7 +38,7 @@
             <p id="room-ai-hint" class="room-ai-hint">開局時尚未加入的座位將由 AI 補足。</p>
           </section>
           <div class="room-primary-actions">
-            <button type="button" class="btn primary room-start-button" id="host-start">開始多人對局（空位補 AI）</button>
+            <button type="button" class="btn primary room-start-button" id="host-start">開始四人對局（空位補 AI）</button>
             <div class="room-secondary-actions">
               <button type="button" class="btn secondary" id="copy-invite">複製邀請連結</button>
               <button type="button" class="btn subtle" id="room-leave">離開房間</button>
@@ -85,6 +86,6 @@
   </div>
   <script src="./assets/art-config.js?v=020"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js" integrity="sha512-XEKeWX+mI3Ov+tg2evDlVQFzVOIp4T8J3cNcCEPaEUGpxJV3eZaN8rHuvnFPvQpGJBHPmrozJDMpm2xcDvtmyQ==" crossorigin="anonymous"></script>
-  <script type="module" src="./src/main.js?v=023"></script>
+  <script type="module" src="./src/main.js?v=024"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import {
   drawAndEndHumanTurn
 } from './game.js';
 import { checkTileIntegrity, validateBoard } from './rules.js';
+import { FIXED_PLAYER_COUNT } from './fixed-game-config.js';
 
 export const ROOM_PROTOCOL = 1;
 const ROOM_CODE_RE = /^[0-9]{6}$/;
@@ -26,7 +27,8 @@ export function secureRoomCode(randomBytes) {
 }
 
 export function newRoom({ code, seats, hostName }) {
-  if (!validRoomCode(code) || !Number.isInteger(seats) || seats < 2 || seats > 4) throw new Error('房號或座位數不正確。');
+  if (!validRoomCode(code)) throw new Error('房號不正確。');
+  if (seats !== FIXED_PLAYER_COUNT) throw new Error('房間固定四位玩家，請重新建立四人房。');
   return {
     protocol: ROOM_PROTOCOL, code, seats, phase: 'lobby', revision: 0,
     members: [{ seat: 0, token: null, name: sanitizePlayerName(hostName), connected: true }],

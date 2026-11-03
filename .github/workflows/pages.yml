@@ -33,6 +33,7 @@ jobs:
           node --check src/match-result.js
           node --check src/room-join-status.js
           node --check src/room-roster.js
+          node --check src/fixed-game-config.js
           node --check src/tile-order.js
           node --check src/online-core.js
           node --check src/peer-room.js

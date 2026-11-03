@@ -15,14 +15,18 @@ function preparedRoom() {
   return room;
 }
 
-test('unique 6-digit room code, 2-4 seats only, 16-char sanitized names', () => {
+test('unique room code, fixed four seats only, and sanitized names', () => {
   assert.equal(secureRoomCode(() => new Uint8Array(4).fill(1)).length, 6);
   assert.throws(() => newRoom({ code: 'abc', seats: 4 }));
-  assert.throws(() => newRoom({ code: '123456', seats: 5 }));
-  const room = newRoom({ code: '123456', seats: 2 });
+  for(const seats of [2, 3, 5]) assert.throws(
+    () => newRoom({ code: '123456', seats }), /固定四位/
+  );
+  const room = newRoom({ code: '123456', seats: 4 });
   reserveSeat(room, token1, '<script>長名字超過十六字元的玩家名稱');
   assert.ok(room.members[1].name.length <= 16 && !room.members[1].name.includes('<'));
-  assert.throws(() => reserveSeat(room, token2, '不應再有座位'));
+  reserveSeat(room, token2, '好友乙');
+  reserveSeat(room, '33333333333333333333333333333333', '好友丙');
+  assert.throws(() => reserveSeat(room, '44444444444444444444444444444444', '房間已滿'), /房間已滿/);
 });
 
 test('1 host + 2 guests + AI fallback; reconnect keeps seat and not duplicate member', () => {
@@ -125,10 +129,12 @@ test('guest makes a valid 30-point opening using their own tiles, host accepts',
 });
 
 test('disconnected guest before start is replaced with AI', () => {
-  const room = newRoom({ code: '123456', seats: 3, hostName: '房主' });
+  const room = newRoom({ code: '123456', seats: 4, hostName: '房主' });
   reserveSeat(room, token1, '離線者');
   disconnectSeat(room, 1);
   startRoom(room, () => 0.25);
   assert.equal(room.match.players[1].isAi, true);
+  assert.equal(room.match.players.length, 4);
+  assert.equal(room.match.players.filter(p => p.isAi).length, 3);
   assert.equal(room.members.length, 1);
 });

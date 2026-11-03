@@ -5,6 +5,7 @@ import { OnlineController } from './online-controller.js';
 import { validRoomCode } from './online-core.js';
 import { describeRoomJoin } from './room-join-status.js';
 import { describeRoomRoster } from './room-roster.js';
+import { FIXED_PLAYER_COUNT, canonicalPublicPath } from './fixed-game-config.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -19,7 +20,13 @@ let pendingAi = false;
 const labels = { red: '紅', blue: '藍', yellow: '黃', black: '黑' };
 let rackSortMode = 'number';
 let lastAnnouncedResult = null;
+// Keep one permanent public game URL. Room invite links retain ?room=123456.
 const incomingRoom = new URLSearchParams(window.location.search).get('room');
+const canonicalPath = canonicalPublicPath(window.location.href);
+const visiblePath = window.location.pathname + window.location.search + window.location.hash;
+if (canonicalPath !== visiblePath) {
+  window.history.replaceState(window.history.state, '', canonicalPath);
+}
 const online = new OnlineController({
   onMatch(next) { match = next; selected.clear(); targetMeld = null; render(); scheduleAi(); },
   onStatus(message) { updateOnlineStatus(message); renderOnlineRoom(); }
@@ -350,10 +357,10 @@ document.addEventListener('keydown', event => {
 });
 $('start-game').addEventListener('click', () => {
   if (online.active) return;
-  withAction(() => { match = newMatch({ seats: Number($('seat-count').value) }); rackSortMode = 'number'; });
+  withAction(() => { match = newMatch({ seats: FIXED_PLAYER_COUNT }); rackSortMode = 'number'; });
 });
 $('create-room').addEventListener('click', async () => {
-  try { await online.host(Number($('seat-count').value), $('online-name').value); }
+  try { await online.host(FIXED_PLAYER_COUNT, $('online-name').value); }
   catch (error) { updateOnlineStatus(error.message); }
 });
 $('join-room').addEventListener('click', async () => {
@@ -407,7 +414,7 @@ $('draw-tile').addEventListener('click', () => {
   } else withAction(() => drawAndEndHumanTurn(match), true);
 });
 $('new-game').addEventListener('click', () => {
-  if (!window.confirm(online.active ? '離開多人房間？如果你是房主，所有好友會失去房間連線。' : '確定放棄目前這局，重新選擇玩家人數嗎？')) return;
+  if (!window.confirm(online.active ? '離開多人房間？如果你是房主，所有好友會失去房間連線。' : '確定放棄目前這局，返回四人對局首頁嗎？')) return;
   if (online.active) online.leave();
   try { localStorage.removeItem(SAVE_KEY); } catch (_) { /* Storage can be disabled. */ }
   match = null;
@@ -432,7 +439,7 @@ try {
   const saved = localStorage.getItem(SAVE_KEY);
   if (saved && !incomingRoom && !online.hasStoredHost) {
     const parsed = JSON.parse(saved);
-    if (isValidSavedState(parsed)) match = parsed;
+    if (isValidSavedState(parsed) && parsed.players.length === FIXED_PLAYER_COUNT) match = parsed;
     else localStorage.removeItem(SAVE_KEY);
   }
 } catch (_) {

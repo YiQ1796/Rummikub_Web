@@ -7,6 +7,7 @@ import {
   validRoomCode, validClientToken, ROOM_PROTOCOL
 } from './online-core.js';
 import { PeerRoom } from './peer-room.js';
+import { FIXED_PLAYER_COUNT } from './fixed-game-config.js';
 
 const HOST_KEY = 'sanmao-rummikub-host-room-v1';
 const TOKEN_PREFIX = 'sanmao-rummikub-seat-v1-';
@@ -64,7 +65,14 @@ export class OnlineController {
     this.name = '玩家';
   }
   get active() { return this.mode === 'host' || this.mode === 'guest'; }
-  get hasStoredHost() { return Boolean(safeRead(HOST_KEY)); }
+  get hasStoredHost() {
+    const saved = safeRead(HOST_KEY);
+    if (!saved) return false;
+    try {
+      const room = JSON.parse(saved);
+      return room?.protocol === ROOM_PROTOCOL && room?.seats === FIXED_PLAYER_COUNT;
+    } catch { return false; }
+  }
   get isHost() { return this.mode === 'host'; }
   get members() { return this.isHost ? this.room?.members || [] : this.view?.roster || []; }
   emit(message) { this.lastStatus = message; this.onStatus(message); }
@@ -87,6 +95,7 @@ export class OnlineController {
     if (this.isHost && this.room) safeWrite(HOST_KEY, JSON.stringify(this.room));
   }
   async host(seats, name) {
+    if (seats !== FIXED_PLAYER_COUNT) throw new Error('目前一律使用四人房間。');
     this.leave();
     this.mode = 'host';
     this.name = sanitizePlayerName(name);
@@ -115,9 +124,13 @@ export class OnlineController {
     const raw = safeRead(HOST_KEY);
     if (!raw || this.active) return false;
     let room;
-    try { room = JSON.parse(raw); } catch { return false; }
-    if (!room || room.protocol !== ROOM_PROTOCOL || !validRoomCode(room.code) ||
-      !Number.isInteger(room.seats) || room.seats < 2 || room.seats > 4 ||
+    try { room = JSON.parse(raw); } catch { safeRemove(HOST_KEY); return false; }
+    if (room?.protocol !== ROOM_PROTOCOL || room?.seats !== FIXED_PLAYER_COUNT) {
+      safeRemove(HOST_KEY);
+      this.emit('舊版非四人房間已停用，請重新建立四人房間。');
+      return false;
+    }
+    if (!validRoomCode(room.code) ||
       !Array.isArray(room.members) || !room.members.some(m => m.seat === 0) ||
       (room.match && (!isValidSavedState(room.match) || !checkTileIntegrity(room.match)))) return false;
     this.mode = 'host';
@@ -232,6 +245,11 @@ export class OnlineController {
     }
     if (msg.type === 'welcome') {
       if (msg.snapshot?.seat !== msg.seat) return;
+      if (msg.snapshot?.seats !== FIXED_PLAYER_COUNT) {
+        this.leave();
+        this.emit('房主使用的是舊版非四人房間，請房主重新建立四人房。');
+        return;
+      }
       this.seat = msg.seat;
       this.connected = true;
       this.acceptSnapshot(msg.snapshot, true);
@@ -241,7 +259,8 @@ export class OnlineController {
     if (msg.type === 'state') this.acceptSnapshot(msg.snapshot);
   }
   acceptSnapshot(snapshot, force = false) {
-    if (!snapshot || snapshot.protocol !== ROOM_PROTOCOL || snapshot.code !== this.code ||
+    if (!snapshot || snapshot.protocol !== ROOM_PROTOCOL ||
+      snapshot.seats !== FIXED_PLAYER_COUNT || snapshot.code !== this.code ||
       !Number.isInteger(snapshot.revision) || snapshot.seat !== this.seat ||
       (!force && snapshot.revision < this.knownRevision)) return;
     if (!force && snapshot.revision === this.knownRevision) return;
