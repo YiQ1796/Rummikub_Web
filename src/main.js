@@ -4,6 +4,7 @@ import { describeMatchResult, formatSignedScore } from './match-result.js';
 import { OnlineController } from './online-controller.js';
 import { validRoomCode } from './online-core.js';
 import { describeRoomJoin } from './room-join-status.js';
+import { describeRoomRoster } from './room-roster.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -31,6 +32,52 @@ function updateOnlineStatus(message) {
   if (gameStatus) gameStatus.textContent = message;
 }
 
+function createRosterElement(tag, className, text) {
+  const element = document.createElement(tag);
+  element.className = className;
+  element.textContent = text;
+  return element;
+}
+
+/** Render each seat explicitly: host, connected guest, or waiting/AI fallback. */
+function renderRoomRoster() {
+  const seats = online.isHost ? online.room?.seats : online.view?.seats;
+  const roster = describeRoomRoster({
+    members: online.members,
+    seats,
+    viewerSeat: online.seat
+  });
+  const count = $('room-player-count');
+  const hint = $('room-ai-hint');
+  const list = $('room-members');
+  if (!roster.ready) {
+    count.textContent = '正在載入座位';
+    hint.textContent = '正在向房主取得玩家名單。';
+    list.replaceChildren();
+    return;
+  }
+  count.textContent = `${roster.realPlayers} / ${roster.capacity} 位真人已連線`;
+  hint.textContent = roster.futureAi
+    ? `還有 ${roster.futureAi} 個位置可邀請好友；現在開局會自動補上 ${roster.futureAi} 位 AI。`
+    : '真人已全數到齊，可以開始對局。';
+  list.replaceChildren(...roster.slots.map(slot => {
+    const card = document.createElement('li');
+    card.className = `room-player-card ${slot.state}${slot.isHost ? ' host' : ''}${slot.isYou ? ' mine' : ''}`;
+    const avatar = createRosterElement('span', 'room-player-avatar',
+      slot.isHost ? '主' : slot.state === 'open' ? '＋' : slot.state === 'offline' ? '離' : '友');
+    avatar.setAttribute('aria-hidden', 'true');
+    const info = document.createElement('div');
+    info.className = 'room-player-info';
+    const seatNumber = createRosterElement('span', 'room-seat-number',
+      `座位 ${String(slot.seat + 1).padStart(2, '0')} · ${slot.role}${slot.isYou ? ' · 你' : ''}`);
+    const name = createRosterElement('strong', 'room-player-name', slot.name);
+    info.append(seatNumber, name);
+    const status = createRosterElement('span', 'room-player-status', slot.status);
+    card.append(avatar, info, status);
+    return card;
+  }));
+}
+
 function renderOnlineRoom() {
   const hasRoom = online.active;
   const summary = $('room-summary');
@@ -52,10 +99,7 @@ function renderOnlineRoom() {
   const status = $('room-join-state');
   status.textContent = display.notice;
   status.className = `room-join-state ${display.kind}`;
-  const members = online.members.map(m => `${m.name}（${m.connected ? '在線' : '離線'}）`).join('、');
-  $('room-members').textContent = members
-    ? `${members}｜未加入的座位會由 AI 補齊`
-    : '正在取得房主的玩家名單，尚未確認入座。';
+  renderRoomRoster();
   $('host-start').classList.toggle('hidden', !online.isHost || online.room?.phase !== 'lobby');
   $('room-reconnect').classList.toggle('hidden', !display.canRetry);
 }

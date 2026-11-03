@@ -43,3 +43,40 @@
 .room-join-state.waiting{color:#70531a;background:#fff1d7;border-color:#e0c587}
 .room-join-state.problem{color:#8c2c23;background:#fff0ed;border-color:#dca79f}
 @media(max-width:850px){.room-join-state{font-size:.93rem;padding:11px}}
+
+/* V0.2.3 — clear multiplayer lobby cards for real players and AI fallback. */
+.room-summary{padding:clamp(13px,3vw,20px)}
+.room-player-section{margin:14px 0 16px;padding:14px;border:1px solid #d5c4a2;border-radius:15px;background:#fffaf0}
+.room-roster-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.room-roster-heading h3{font-size:1.13rem;font-weight:900;color:#1b493b;margin:0}
+.room-player-count{display:inline-block;font-weight:900;font-size:.91rem;padding:7px 12px;border-radius:999px;color:#174e3d;background:#e5f1e6;border:1px solid #a8c8b2;font-variant-numeric:tabular-nums}
+.room-player-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0;margin:0;list-style:none}
+.room-player-card{min-width:0;display:grid;grid-template-columns:48px minmax(0,1fr);gap:7px 12px;align-items:center;padding:13px 12px;border:2px solid #c8c9b8;border-radius:13px;background:#fff;box-shadow:0 3px 9px #362a1912}
+.room-player-card.host{border-color:#b68a48;background:#fff7e6}
+.room-player-card.mine{box-shadow:0 0 0 2px #77ac92,0 3px 9px #362a1912}
+.room-player-card.open{border-style:dashed;background:#f4f0e7;border-color:#bcb4a3}
+.room-player-card.offline{border-color:#cda398;background:#fff4f0}
+.room-player-avatar{grid-row:span 2;display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;border-radius:14px;background:#1f5443;color:#fff;font-size:1.3rem;font-weight:900}
+.room-player-card.host .room-player-avatar{background:#ac7c32}
+.room-player-card.open .room-player-avatar{background:#dcd4c5;color:#716a5d}
+.room-player-card.offline .room-player-avatar{background:#ad786a}
+.room-player-info{min-width:0;display:grid;gap:3px}
+.room-seat-number{color:#6c6658;font-size:.77rem;font-weight:800}
+.room-player-name{font-size:1.08rem;color:#203f36;overflow-wrap:anywhere;line-height:1.35}
+.room-player-card.open .room-player-name{color:#766e5e}
+.room-player-status{grid-column:2;justify-self:start;font-size:.8rem;font-weight:800;color:#14563e}
+.room-player-card.offline .room-player-status{color:#9b4e38}
+.room-player-card.open .room-player-status{color:#736957}
+.room-ai-hint{margin:12px 2px 0!important;color:#614d27;font-size:.88rem!important;font-weight:700}
+.room-primary-actions{display:grid;gap:10px;margin-top:12px}
+.room-start-button{min-height:52px;width:100%;font-size:1.05rem}
+.room-secondary-actions{display:flex;gap:8px;flex-wrap:wrap}
+.room-secondary-actions .btn{flex:1 1 145px;min-height:43px}
+@media(max-width:560px){
+  .room-player-section{padding:10px}
+  .room-player-grid{grid-template-columns:1fr;gap:9px}
+  .room-player-card{padding:11px}
+  .room-roster-heading h3{font-size:1rem}
+  .room-player-name{font-size:1rem}
+  .room-player-count{font-size:.83rem}
+}
