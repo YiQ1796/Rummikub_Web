@@ -6,6 +6,7 @@ import { validRoomCode } from './online-core.js';
 import { describeRoomJoin } from './room-join-status.js';
 import { describeRoomRoster } from './room-roster.js';
 import { FIXED_PLAYER_COUNT, canonicalPublicPath } from './fixed-game-config.js';
+import { chooseResumeCandidate, describeResumeCandidate } from './resume-choice.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -20,6 +21,9 @@ let pendingAi = false;
 const labels = { red: '紅', blue: '藍', yellow: '黃', black: '黑' };
 let rackSortMode = 'number';
 let lastAnnouncedResult = null;
+let startupCandidate = null;
+let savedSoloCandidate = null;
+let startupBusy = false;
 // Keep one permanent public game URL. Room invite links retain ?room=123456.
 const incomingRoom = new URLSearchParams(window.location.search).get('room');
 const canonicalPath = canonicalPublicPath(window.location.href);
@@ -31,6 +35,97 @@ const online = new OnlineController({
   onMatch(next) { match = next; selected.clear(); targetMeld = null; render(); scheduleAi(); },
   onStatus(message) { updateOnlineStatus(message); renderOnlineRoom(); }
 });
+
+function readPreviousSolo() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const previous = JSON.parse(raw);
+    return previous?.players?.length === FIXED_PLAYER_COUNT && isValidSavedState(previous)
+      ? previous : null;
+  } catch { return null; }
+}
+
+/** The previous game remains dormant until one of the two buttons is pressed. */
+function showResumeDecision(candidate) {
+  startupCandidate = candidate;
+  $('resume-description').textContent = describeResumeCandidate(candidate);
+  $('resume-error').classList.add('hidden');
+  $('resume-overlay').classList.remove('hidden');
+  $('resume-overlay').setAttribute('aria-hidden', 'false');
+  document.body.classList.add('resume-modal-open');
+  $('resume-previous').disabled = false;
+  $('resume-new').disabled = false;
+  $('resume-dialog').focus();
+}
+function closeResumeDecision() {
+  $('resume-overlay').classList.add('hidden');
+  $('resume-overlay').setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('resume-modal-open');
+  startupCandidate = null;
+}
+async function restoreOnDemand() {
+  if (!startupCandidate || startupBusy) return;
+  startupBusy = true;
+  $('resume-previous').disabled = true;
+  $('resume-new').disabled = true;
+  const candidate = startupCandidate;
+  try {
+    if (candidate.type === 'solo') {
+      if (!savedSoloCandidate || !isValidSavedState(savedSoloCandidate))
+        throw new Error('上一局存檔已損毀，請開始新局。');
+      match = savedSoloCandidate;
+      rackSortMode = 'number';
+      closeResumeDecision();
+      render();
+      scheduleAi();
+    } else if (candidate.type === 'host') {
+      // No networking happens until the room owner explicitly clicks Restore.
+      if (!(await online.restoreHost()))
+        throw new Error('無法恢復原本的房間。請確認房主舊分頁已關閉，再按「恢復上一局」重試；或選擇開始新局。');
+      window.history.replaceState(window.history.state, '', window.location.pathname);
+      closeResumeDecision();
+      render();
+      scheduleAi();
+    } else if (candidate.type === 'guest') {
+      $('online-name').value = candidate.name;
+      await online.join(candidate.code, candidate.name);
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}?room=${candidate.code}`);
+      closeResumeDecision();
+      render();
+    }
+  } catch (error) {
+    const warning = $('resume-error');
+    warning.textContent = error.message || '無法恢復上一局，請重新嘗試。';
+    warning.classList.remove('hidden');
+  } finally {
+    startupBusy = false;
+    if (startupCandidate) {
+      $('resume-previous').disabled = false;
+      $('resume-new').disabled = false;
+    }
+  }
+}
+
+function discardPreviousAndStartNew() {
+  if (startupBusy) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch { /* Storage may be unavailable. */ }
+  online.discardStoredSessions();
+  savedSoloCandidate = null;
+  match = null;
+  selected.clear();
+  targetMeld = null;
+  rackSortMode = 'number';
+  // Opening an old invitation must not silently reconnect after New Game.
+  $('join-code').value = '';
+  window.history.replaceState(window.history.state, '', window.location.pathname);
+  closeResumeDecision();
+  render();
+  $('start-game').focus();
+}
+
+$('resume-previous').addEventListener('click', restoreOnDemand);
+$('resume-new').addEventListener('click', discardPreviousAndStartNew);
 
 function updateOnlineStatus(message) {
   const status = $('online-status');
@@ -360,7 +455,10 @@ $('start-game').addEventListener('click', () => {
   withAction(() => { match = newMatch({ seats: FIXED_PLAYER_COUNT }); rackSortMode = 'number'; });
 });
 $('create-room').addEventListener('click', async () => {
-  try { await online.host(FIXED_PLAYER_COUNT, $('online-name').value); }
+  try {
+    await online.host(FIXED_PLAYER_COUNT, $('online-name').value);
+    online.forgetPreviousGuest();
+  }
   catch (error) { updateOnlineStatus(error.message); }
 });
 $('join-room').addEventListener('click', async () => {
@@ -374,7 +472,13 @@ $('copy-invite').addEventListener('click', copyInvite);
 $('online-copy-invite').addEventListener('click', copyInvite);
 $('room-reconnect').addEventListener('click', () => online.reconnect());
 $('online-reconnect').addEventListener('click', () => online.reconnect());
-$('room-leave').addEventListener('click', () => { online.leave(); match = null; render(); updateOnlineStatus('已離開房間。'); });
+$('room-leave').addEventListener('click', () => {
+  online.leave();
+  online.forgetPreviousGuest();
+  match = null;
+  render();
+  updateOnlineStatus('已離開房間。');
+});
 $('online-ai-takeover').addEventListener('click', () => {
   if (!online.isHost || !window.confirm('將已斷線的真人座位交給 AI？對方將無法回到該座位。')) return;
   const count = online.takeoverDisconnected();
@@ -416,6 +520,7 @@ $('draw-tile').addEventListener('click', () => {
 $('new-game').addEventListener('click', () => {
   if (!window.confirm(online.active ? '離開多人房間？如果你是房主，所有好友會失去房間連線。' : '確定放棄目前這局，返回四人對局首頁嗎？')) return;
   if (online.active) online.leave();
+  online.forgetPreviousGuest();
   try { localStorage.removeItem(SAVE_KEY); } catch (_) { /* Storage can be disabled. */ }
   match = null;
   selected.clear();
@@ -435,23 +540,22 @@ function scheduleAi() {
   }, 420);
 }
 
-try {
-  const saved = localStorage.getItem(SAVE_KEY);
-  if (saved && !incomingRoom && !online.hasStoredHost) {
-    const parsed = JSON.parse(saved);
-    if (isValidSavedState(parsed) && parsed.players.length === FIXED_PLAYER_COUNT) match = parsed;
-    else localStorage.removeItem(SAVE_KEY);
-  }
-} catch (_) {
-  // Corrupt save / disabled storage must not prevent a new game.
-}
-if (match && !checkTileIntegrity(match)) match = null;
+// Read metadata only; do not activate any previous game or room automatically.
+savedSoloCandidate = readPreviousSolo();
+const pendingGuest = online.previousGuestRoom;
+startupCandidate = chooseResumeCandidate({
+  solo: savedSoloCandidate,
+  host: online.storedHostSummary,
+  guest: pendingGuest,
+  incomingRoom
+});
 render();
-scheduleAi();
-if (validRoomCode(incomingRoom)) {
+if (startupCandidate) {
+  if (validRoomCode(incomingRoom)) $('join-code').value = incomingRoom;
+  showResumeDecision(startupCandidate);
+} else if (validRoomCode(incomingRoom)) {
+  // A brand-new explicit invitation is not an automatic resume of an old match.
   $('join-code').value = incomingRoom;
   online.join(incomingRoom, $('online-name').value).catch(error => updateOnlineStatus(error.message));
-} else if (!match) {
-  online.restoreHost().catch(error => updateOnlineStatus(error.message));
 }
 

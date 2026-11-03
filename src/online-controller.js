@@ -11,6 +11,7 @@ import { FIXED_PLAYER_COUNT } from './fixed-game-config.js';
 
 const HOST_KEY = 'sanmao-rummikub-host-room-v1';
 const TOKEN_PREFIX = 'sanmao-rummikub-seat-v1-';
+const LAST_GUEST_KEY = 'sanmao-rummikub-last-guest-v1';
 const MAX_REQUEST_ID = 1000000000;
 
 function randomBytes(count) {
@@ -65,13 +66,39 @@ export class OnlineController {
     this.name = '玩家';
   }
   get active() { return this.mode === 'host' || this.mode === 'guest'; }
-  get hasStoredHost() {
-    const saved = safeRead(HOST_KEY);
-    if (!saved) return false;
+  get hasStoredHost() { return Boolean(this.storedHostSummary); }
+  /** Safe metadata only: showing the resume prompt does not open the old room. */
+  get storedHostSummary() {
+    const raw = safeRead(HOST_KEY);
+    if (!raw) return null;
     try {
-      const room = JSON.parse(saved);
-      return room?.protocol === ROOM_PROTOCOL && room?.seats === FIXED_PLAYER_COUNT;
-    } catch { return false; }
+      const room = JSON.parse(raw);
+      if (room?.protocol !== ROOM_PROTOCOL || room?.seats !== FIXED_PLAYER_COUNT ||
+          !validRoomCode(room.code) || !Array.isArray(room.members) ||
+          !room.members.some(m => m.seat === 0) ||
+          (room.match && (!isValidSavedState(room.match) || !checkTileIntegrity(room.match)))) return null;
+      return { code: room.code, phase: room.match?.status || room.phase };
+    } catch { return null; }
+  }
+  get previousGuestRoom() {
+    const raw = safeRead(LAST_GUEST_KEY);
+    if (!raw) return null;
+    try {
+      const saved = JSON.parse(raw);
+      if (!validRoomCode(saved.code) || !validClientToken(safeRead(TOKEN_PREFIX + saved.code)) ||
+          !Number.isInteger(saved.seat) || saved.seat < 1 || saved.seat >= FIXED_PLAYER_COUNT) return null;
+      return { code: saved.code, name: sanitizePlayerName(saved.name), seat: saved.seat };
+    } catch { return null; }
+  }
+  forgetPreviousGuest() {
+    const previous = this.previousGuestRoom;
+    if (previous) safeRemove(TOKEN_PREFIX + previous.code);
+    safeRemove(LAST_GUEST_KEY);
+  }
+  /** Called only after user explicitly chooses to discard the previous session. */
+  discardStoredSessions() {
+    this.forgetPreviousGuest();
+    safeRemove(HOST_KEY);
   }
   get isHost() { return this.mode === 'host'; }
   get members() { return this.isHost ? this.room?.members || [] : this.view?.roster || []; }
@@ -252,6 +279,7 @@ export class OnlineController {
       }
       this.seat = msg.seat;
       this.connected = true;
+      safeWrite(LAST_GUEST_KEY, JSON.stringify({code: this.code, name: this.name, seat: this.seat}));
       this.acceptSnapshot(msg.snapshot, true);
       this.emit(`已進入房間 ${this.code}，你是第 ${this.seat + 1} 位玩家。`);
       return;

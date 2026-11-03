@@ -86,3 +86,21 @@
 .fixed-player-label strong{font-size:1.07rem}
 .fixed-player-label span{font-size:.81rem;line-height:1.5}
 @media(max-width:560px){.lobby-controls{align-items:stretch}.lobby-controls .btn{width:100%}}
+
+/* V0.2.5 — explicit resume-or-new gate. No implicit restore on page load. */
+.resume-modal-open{overflow:hidden}
+.resume-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;
+  padding:calc(18px + env(safe-area-inset-top,0px)) 16px calc(18px + env(safe-area-inset-bottom,0px));
+  background:#102e24e8;overflow-y:auto}
+.resume-dialog{width:min(100%,500px);max-height:calc(100dvh - 36px);overflow-y:auto;
+  background:#fff9ec;border:3px solid #c7a465;border-radius:21px;padding:clamp(18px,4vw,30px);
+  box-shadow:0 24px 70px #07150da8;text-align:center;outline:none}
+.resume-eyebrow{font-weight:800;letter-spacing:.08em;color:#956a33;font-size:.77rem;margin:0 0 9px}
+.resume-dialog h2{font-size:clamp(1.55rem,5vw,2.1rem);color:#1b4839;margin:0 0 13px}
+#resume-description{line-height:1.7;color:#364f42;font-size:1rem;margin:0 0 10px}
+.resume-hint{color:#4b6c59;font-size:.86rem;line-height:1.65}
+.resume-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0 13px}
+.resume-actions .btn{min-height:54px;font-size:.95rem}
+.resume-warning{margin:0;color:#846b4c;font-size:.82rem;line-height:1.5}
+.resume-error{color:#992a1f;background:#fff0e9;border:1px solid #d79786;border-radius:9px;padding:10px;font-weight:700;line-height:1.5}
+@media(max-width:440px){.resume-actions{grid-template-columns:1fr}.resume-dialog{padding:19px 14px}}
