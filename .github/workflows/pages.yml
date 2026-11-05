@@ -35,6 +35,7 @@ jobs:
           node --check src/room-roster.js
           node --check src/fixed-game-config.js
           node --check src/resume-choice.js
+          node --check src/quick-chat.js
           node --check src/tile-order.js
           node --check src/online-core.js
           node --check src/peer-room.js

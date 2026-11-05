@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const required = [
   'index.html', '.nojekyll', 'assets/styles.css', 'assets/art-config.js',
-  'src/main.js', 'src/fixed-game-config.js', 'src/resume-choice.js', 'src/room-join-status.js', 'src/room-roster.js', 'src/tile-order.js', 'src/match-result.js', 'src/online-core.js', 'src/peer-room.js', 'src/online-controller.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
+  'src/main.js', 'src/quick-chat.js', 'src/fixed-game-config.js', 'src/resume-choice.js', 'src/room-join-status.js', 'src/room-roster.js', 'src/tile-order.js', 'src/match-result.js', 'src/online-core.js', 'src/peer-room.js', 'src/online-controller.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
   'assets/jokers/joker_sanmao_smile.webp', 'assets/jokers/joker_sanmao_smirk.webp',
-  'tests/fixed-game-config.test.mjs', 'tests/resume-choice.test.mjs', 'tests/resume-controller.test.mjs', 'tests/room-roster.test.mjs', 'tests/room-join-status.test.mjs', 'tests/match-result.test.mjs', 'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/online-core.test.mjs', 'tests/online-integration.test.mjs', 'tests/tile-order.test.mjs',
+  'tests/quick-chat.test.mjs', 'tests/fixed-game-config.test.mjs', 'tests/resume-choice.test.mjs', 'tests/resume-controller.test.mjs', 'tests/room-roster.test.mjs', 'tests/room-join-status.test.mjs', 'tests/match-result.test.mjs', 'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/online-core.test.mjs', 'tests/online-integration.test.mjs', 'tests/tile-order.test.mjs',
 ];
 for (const relativePath of required) {
   assert.ok(existsSync(resolve(root, relativePath)), `Missing deploy file: ${relativePath}`);
@@ -36,6 +36,10 @@ assert.doesNotMatch(html, /id="seat-count"/, 'Player count chooser must be remov
 assert.match(html, /rel="canonical" href="https:\/\/yiq1796\.github\.io\/Rummikub_Web\/"/);
 assert.match(html, /id="result-dialog"/);
 assert.match(html, /id="result-banner"/);
+assert.match(html, /id="quick-chat-title"/);
+assert.match(html, /id="quick-taunts"/);
+assert.match(html, /id="quick-emotes"/);
+assert.match(html, /id="quick-chat-feed"/);
 assert.match(html, /id="result-scores"/);
 assert.match(html, /type="module"\s+src="\.\/src\/main\.js(?:\?v=\d+)?"/);
 assert.match(html, /<link\s+rel="stylesheet"\s+href="\.\/assets\/styles\.css(?:\?v=\d+)?"/);

@@ -7,6 +7,8 @@ import { describeRoomJoin } from './room-join-status.js';
 import { describeRoomRoster } from './room-roster.js';
 import { FIXED_PLAYER_COUNT, canonicalPublicPath } from './fixed-game-config.js';
 import { chooseResumeCandidate, describeResumeCandidate } from './resume-choice.js';
+import { QUICK_TAUNTS, QUICK_EMOTES, getQuickInteraction,
+  canSendQuickInteraction } from './quick-chat.js';
 import {
   newMatch, editDraft, inspectDraft, commitHumanTurn,
   drawAndEndHumanTurn, resetDraft, runAiTurn, SAVE_KEY,
@@ -24,6 +26,9 @@ let lastAnnouncedResult = null;
 let startupCandidate = null;
 let savedSoloCandidate = null;
 let startupBusy = false;
+const activeBubbles = new Map();
+const recentInteractions = [];
+let soloLastInteractionAt = null;
 // Keep one permanent public game URL. Room invite links retain ?room=123456.
 const incomingRoom = new URLSearchParams(window.location.search).get('room');
 const canonicalPath = canonicalPublicPath(window.location.href);
@@ -32,8 +37,16 @@ if (canonicalPath !== visiblePath) {
   window.history.replaceState(window.history.state, '', canonicalPath);
 }
 const online = new OnlineController({
-  onMatch(next) { match = next; selected.clear(); targetMeld = null; render(); scheduleAi(); },
-  onStatus(message) { updateOnlineStatus(message); renderOnlineRoom(); }
+  onMatch(next) {
+    if (!match && next) resetQuickInteractions();
+    match = next;
+    selected.clear();
+    targetMeld = null;
+    render();
+    scheduleAi();
+  },
+  onStatus(message) { updateOnlineStatus(message); renderOnlineRoom(); },
+  onInteraction(message) { showQuickInteraction(message); }
 });
 
 function readPreviousSolo() {
@@ -113,6 +126,7 @@ function discardPreviousAndStartNew() {
   online.discardStoredSessions();
   savedSoloCandidate = null;
   match = null;
+  resetQuickInteractions();
   selected.clear();
   targetMeld = null;
   rackSortMode = 'number';
@@ -126,6 +140,88 @@ function discardPreviousAndStartNew() {
 
 $('resume-previous').addEventListener('click', restoreOnDemand);
 $('resume-new').addEventListener('click', discardPreviousAndStartNew);
+
+/** Reactions only affect transient presentation; never modify the game or timer. */
+function resetQuickInteractions() {
+  activeBubbles.clear();
+  recentInteractions.length = 0;
+  soloLastInteractionAt = null;
+  renderQuickFeed();
+}
+function renderQuickFeed() {
+  const list = $('quick-chat-feed');
+  list.replaceChildren(...recentInteractions.slice(-3).reverse().map(entry => {
+    const item = document.createElement('li');
+    item.textContent = `${entry.name}：${entry.text}`;
+    return item;
+  }));
+}
+function showQuickInteraction({ seat, id }) {
+  const interaction = getQuickInteraction(id);
+  if (!match || !interaction || !Number.isInteger(seat) || seat < 0 ||
+      seat >= match.players.length) return;
+  const entry = { id, text: interaction.text, name: match.players[seat].name,
+    expiresAt: Date.now() + 5700 };
+  activeBubbles.set(seat, entry);
+  recentInteractions.push(entry);
+  if (recentInteractions.length > 3) recentInteractions.shift();
+  renderPlayers();
+  renderQuickFeed();
+  // The cleanup is cosmetic; it is not a countdown or a player turn limit.
+  setTimeout(() => {
+    if (activeBubbles.get(seat) === entry) {
+      activeBubbles.delete(seat);
+      if (match) renderPlayers();
+    }
+  }, 5700);
+}
+function setQuickFeedback(message) {
+  $('quick-chat-feedback').textContent = message;
+}
+function sendQuickInteraction(id) {
+  const interaction = getQuickInteraction(id);
+  if (!match || match.status !== 'playing' || !interaction) return;
+  try {
+    if (online.active) {
+      online.sendReaction(id);
+    } else {
+      const now = Date.now();
+      if (!canSendQuickInteraction(soloLastInteractionAt, now))
+        throw new Error('太快啦！請稍等 3 秒再發送。');
+      soloLastInteractionAt = now;
+      showQuickInteraction({ seat: 0, id });
+      // A solo AI reacts to make quick chat useful even without friends online.
+      const aiSeat = match.players.findIndex((player, seat) => seat !== 0 && player.isAi);
+      const currentMatch = match;
+      if (aiSeat >= 0) {
+        const replies = ['e01', 'e03', 'e04', 'e05', 'e06'];
+        const reply = replies[Math.floor(Math.random() * replies.length)];
+        setTimeout(() => {
+          if (match === currentMatch && !online.active && match.status === 'playing')
+            showQuickInteraction({ seat: aiSeat, id: reply });
+        }, 850);
+      }
+    }
+    setQuickFeedback(`已送出：${interaction.text}`);
+  } catch (error) {
+    setQuickFeedback(error.message || '發送失敗，請重新連線再試。');
+  }
+}
+function renderQuickOptions() {
+  const makeButton = (item) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = item.kind === 'emote' ? 'quick-emote' : 'quick-taunt';
+    button.textContent = item.text;
+    button.title = item.kind === 'emote' ? item.label : item.text;
+    button.setAttribute('aria-label', `發送${item.kind === 'emote' ? '表情' : '嘲諷'}：${item.label || item.text}`);
+    button.addEventListener('click', () => sendQuickInteraction(item.id));
+    return button;
+  };
+  $('quick-emotes').replaceChildren(...QUICK_EMOTES.map(makeButton));
+  $('quick-taunts').replaceChildren(...QUICK_TAUNTS.map(makeButton));
+}
+renderQuickOptions();
 
 function updateOnlineStatus(message) {
   const status = $('online-status');
@@ -369,6 +465,13 @@ function renderPlayers() {
     const onlineMember = online.members.find(item => item.seat === index);
     count.textContent = `${player.handCount ?? player.hand.length} 張${player.opened ? ' · 已破冰' : ' · 未破冰'}${onlineMember && !onlineMember.connected ? ' · 離線' : ''}`;
     box.append(title, count);
+    const bubble = activeBubbles.get(index);
+    if (bubble && bubble.expiresAt > Date.now()) {
+      const message = document.createElement('span');
+      message.className = 'player-quick-bubble';
+      message.textContent = bubble.text;
+      box.append(message);
+    }
     players.append(box);
   });
 }
@@ -382,6 +485,10 @@ function render() {
   if (online.active) $('online-room-label').textContent = `房間 ${online.code} ｜座位 ${online.seat + 1}`;
   $('new-game').textContent = online.active ? '離開房間' : '重新開局';
   renderPlayers();
+  // Quick interactions remain available while another player is thinking.
+  const canChat = match.status === 'playing' && (!online.active || online.connected);
+  for (const button of $('quick-emotes').children) button.disabled = !canChat;
+  for (const button of $('quick-taunts').children) button.disabled = !canChat;
   const stats = gameStats(match);
   $('pool-count').textContent = String(match.poolCount ?? stats.inPool);
   $('table-count').textContent = String(stats.onTable);
@@ -452,7 +559,11 @@ document.addEventListener('keydown', event => {
 });
 $('start-game').addEventListener('click', () => {
   if (online.active) return;
-  withAction(() => { match = newMatch({ seats: FIXED_PLAYER_COUNT }); rackSortMode = 'number'; });
+  withAction(() => {
+    resetQuickInteractions();
+    match = newMatch({ seats: FIXED_PLAYER_COUNT });
+    rackSortMode = 'number';
+  });
 });
 $('create-room').addEventListener('click', async () => {
   try {
@@ -476,6 +587,7 @@ $('room-leave').addEventListener('click', () => {
   online.leave();
   online.forgetPreviousGuest();
   match = null;
+  resetQuickInteractions();
   render();
   updateOnlineStatus('已離開房間。');
 });
@@ -523,6 +635,7 @@ $('new-game').addEventListener('click', () => {
   online.forgetPreviousGuest();
   try { localStorage.removeItem(SAVE_KEY); } catch (_) { /* Storage can be disabled. */ }
   match = null;
+  resetQuickInteractions();
   selected.clear();
   render();
 });

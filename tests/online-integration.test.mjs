@@ -87,3 +87,59 @@ test('fast welcome keeps success state instead of reverting to searching message
   assert.match(guest.lastStatus, /拒絕/);
   guest.leave(); host.leave();
 });
+
+test('host/guest reactions are synced, seat-authenticated, rate-limited and never alter tiles or turn', async () => {
+  const hostEvents = [], guestEvents = [];
+  const host = new OnlineController({
+    onMatch: () => {}, onStatus: () => {},
+    onInteraction: message => hostEvents.push(message)
+  });
+  const guest = new OnlineController({
+    onMatch: () => {}, onStatus: () => {},
+    onInteraction: message => guestEvents.push(message)
+  });
+  let channel;
+  host.createTransport = () => ({
+    host: async () => {}, close: () => {},
+    sendHost: (conn,msg) => { guest.receiveGuestMessage(structuredClone(msg)); return true; }
+  });
+  guest.createTransport = () => ({
+    join: async () => {}, close: () => {},
+    sendGuest: msg => { host.receiveHostMessage(structuredClone(msg),channel); return true; }
+  });
+  await host.host(4,'房主');
+  await guest.join(host.code,'好友');
+  channel={open:true,close:()=>{}};
+  guest.sendHello();
+  host.start();
+  assert.equal(guest.seat,1);
+  assert.equal(host.room.match.currentSeat,0, 'Guest may react outside their turn');
+  const revision=host.room.revision;
+  const before=JSON.stringify(host.room.match);
+
+  guest.sendReaction('t01');
+  assert.deepEqual(hostEvents,[{seat:1,id:'t01'}]);
+  assert.deepEqual(guestEvents,[{seat:1,id:'t01'}]);
+  assert.throws(()=>guest.sendReaction('t02'),/稍等/);
+  host.receiveHostMessage({type:'reaction',id:'t02',seat:0},channel);
+  assert.equal(hostEvents.length,1,'Untrusted guest cannot bypass host cooldown or spoof seat');
+  host.receiveHostMessage({type:'reaction',id:'not-allowed'},channel);
+  assert.equal(hostEvents.length,1,'Unlisted text is rejected by host');
+
+  host.sendReaction('e05');
+  assert.deepEqual(hostEvents[1],{seat:0,id:'e05'});
+  assert.deepEqual(guestEvents[1],{seat:0,id:'e05'});
+  guest.receiveGuestMessage({type:'reaction',seat:99,id:'t01'});
+  guest.receiveGuestMessage({type:'reaction',seat:0,id:'<b>fake</b>'});
+  assert.equal(guestEvents.length,2,'Malformed network payloads are ignored');
+
+  assert.equal(host.room.revision,revision,'Reactions do not trigger game state publications');
+  assert.equal(JSON.stringify(host.room.match),before,'Reactions never alter the deck, hands or turn');
+  host.leave(); guest.leave();
+});
+
+test('guest cannot send chat before joining, and host rejects unknown codes', () => {
+  const guest = new OnlineController({onMatch:()=>{},onStatus:()=>{}});
+  assert.throws(()=>guest.sendReaction('t01'),/尚未連線/);
+  assert.throws(()=>guest.sendReaction('untrusted'),/無效/);
+});

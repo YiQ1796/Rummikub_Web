@@ -104,3 +104,41 @@
 .resume-warning{margin:0;color:#846b4c;font-size:.82rem;line-height:1.5}
 .resume-error{color:#992a1f;background:#fff0e9;border:1px solid #d79786;border-radius:9px;padding:10px;font-weight:700;line-height:1.5}
 @media(max-width:440px){.resume-actions{grid-template-columns:1fr}.resume-dialog{padding:19px 14px}}
+
+/* V0.2.6 — tap-to-send quick taunts and speech bubbles. No image generation. */
+.quick-chat-panel{padding:15px 18px;display:grid;gap:11px}
+.quick-chat-header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.quick-chat-header h2{font-size:1.07rem;font-weight:900;margin:0;color:#215344}
+.quick-chat-header span{font-size:.8rem;color:#75674d}
+.quick-emotes{display:flex;flex-wrap:wrap;gap:8px}
+.quick-emote{min-width:51px;min-height:49px;padding:5px 10px;background:#fff7e4;
+  border:1px solid #d5c29c;border-radius:13px;cursor:pointer;font-size:1.7rem;line-height:1.25;
+  box-shadow:0 2px 5px #3d2b1319;touch-action:manipulation}
+.quick-emote:active{transform:translateY(1px)}
+.quick-emote:focus-visible,.quick-taunt:focus-visible{outline:3px solid #3e856a;outline-offset:2px}
+.quick-emote:disabled,.quick-taunt:disabled{opacity:.5;cursor:not-allowed}
+.quick-taunts-details{border-top:1px solid #e3d7bc;padding-top:10px}
+.quick-taunts-details summary{font-size:.94rem;font-weight:850;color:#355646;cursor:pointer;padding:3px}
+.quick-taunts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:10px}
+.quick-taunt{min-height:43px;line-height:1.45;text-align:left;background:#f7efdc;
+  border:1px solid #d9c7a7;color:#314d42;border-radius:10px;padding:9px 12px;cursor:pointer;font-size:.85rem}
+.quick-chat-feedback{margin:0;color:#61725d;font-size:.81rem;line-height:1.5}
+.quick-chat-feed{display:flex;gap:7px;flex-wrap:wrap;list-style:none;padding:0;margin:0}
+.quick-chat-feed:empty{display:none}
+.quick-chat-feed li{font-size:.78rem;border-radius:999px;border:1px solid #dfcda7;
+  background:#fffaf0;color:#554a34;padding:5px 10px;overflow-wrap:anywhere}
+.player-card{position:relative}
+.player-quick-bubble{position:relative;display:block;width:100%;min-width:0;margin-top:9px;padding:8px 10px;
+  border:1px solid #d7b77e;border-radius:12px;background:#ffefc9;color:#6a4019;
+  box-shadow:0 3px 8px #3d2c1815;font-size:.82rem;font-weight:850;line-height:1.5;overflow-wrap:anywhere}
+.player-quick-bubble:before{content:"";position:absolute;top:-6px;left:14px;width:9px;height:9px;
+  border-left:1px solid #d7b77e;border-top:1px solid #d7b77e;background:#ffefc9;transform:rotate(45deg)}
+@media(max-width:650px){
+  .quick-chat-panel{padding:12px}
+  .quick-chat-header span{font-size:.75rem}
+  .quick-emotes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .quick-emote{width:100%;min-width:0;min-height:47px}
+  .quick-taunts{grid-template-columns:1fr}
+  .quick-chat-feed li{font-size:.75rem}
+  .player-quick-bubble{font-size:.75rem}
+}

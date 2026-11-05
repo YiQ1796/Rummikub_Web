@@ -8,6 +8,7 @@ import {
 } from './online-core.js';
 import { PeerRoom } from './peer-room.js';
 import { FIXED_PLAYER_COUNT } from './fixed-game-config.js';
+import { getQuickInteraction, canSendQuickInteraction } from './quick-chat.js';
 
 const HOST_KEY = 'sanmao-rummikub-host-room-v1';
 const TOKEN_PREFIX = 'sanmao-rummikub-seat-v1-';
@@ -46,9 +47,10 @@ function copyForGuest(snapshot) {
 }
 
 export class OnlineController {
-  constructor({ onMatch, onStatus }) {
+  constructor({ onMatch, onStatus, onInteraction = () => {} }) {
     this.onMatch = onMatch;
     this.onStatus = onStatus;
+    this.onInteraction = onInteraction;
     this.transport = null;
     this.room = null;
     this.view = null;
@@ -64,6 +66,8 @@ export class OnlineController {
     this.knownRevision = -1;
     this.lastStatus = '尚未連線';
     this.name = '玩家';
+    this.reactionSentAt = new Map();
+    this.localReactionSentAt = null;
   }
   get active() { return this.mode === 'host' || this.mode === 'guest'; }
   get hasStoredHost() { return Boolean(this.storedHostSummary); }
@@ -239,6 +243,19 @@ export class OnlineController {
       this.publish();
       return;
     }
+    if (msg.type === 'reaction') {
+      // The seat comes from the authenticated Peer connection, not a guest payload.
+      if (!this.room?.match || this.room.match.status !== 'playing' ||
+          !getQuickInteraction(msg.id)) return;
+      const now = Date.now();
+      if (!canSendQuickInteraction(this.reactionSentAt.get(seat), now)) {
+        this.transport.sendHost(conn, { type: 'reaction-error', message: '嘲諷太頻繁了，請稍等 3 秒。' });
+        return;
+      }
+      this.reactionSentAt.set(seat, now);
+      this.broadcastReaction(seat, msg.id);
+      return;
+    }
     if (msg.type !== 'turn' || !Number.isInteger(msg.id) || msg.id < 1 || msg.id > MAX_REQUEST_ID) return;
     if (this.requests.get(seat) === msg.id) return;
     try {
@@ -284,6 +301,17 @@ export class OnlineController {
       this.emit(`已進入房間 ${this.code}，你是第 ${this.seat + 1} 位玩家。`);
       return;
     }
+    if (msg.type === 'reaction') {
+      if (this.view?.game?.status !== 'playing' ||
+          !Number.isInteger(msg.seat) || msg.seat < 0 || msg.seat >= FIXED_PLAYER_COUNT ||
+          !getQuickInteraction(msg.id)) return;
+      this.onInteraction({ seat: msg.seat, id: msg.id });
+      return;
+    }
+    if (msg.type === 'reaction-error') {
+      this.emit(msg.message || '表情發送失敗，請稍後重試。');
+      return;
+    }
     if (msg.type === 'state') this.acceptSnapshot(msg.snapshot);
   }
   acceptSnapshot(snapshot, force = false) {
@@ -296,6 +324,33 @@ export class OnlineController {
     this.view = snapshot;
     this.pending = false;
     this.onMatch(copyForGuest(snapshot));
+  }
+  /** Reactions are ephemeral; do not publish a full snapshot or change the turn. */
+  broadcastReaction(seat, id) {
+    this.onInteraction({ seat, id });
+    for (const [conn] of this.connections) {
+      if (conn.open) this.transport.sendHost(conn, { type: 'reaction', seat, id });
+    }
+  }
+  sendReaction(id) {
+    if (!getQuickInteraction(id)) throw new Error('無效的快捷互動。');
+    const now = Date.now();
+    if (this.isHost) {
+      if (!this.room?.match || this.room.match.status !== 'playing')
+        throw new Error('請先開始遊戲再使用快捷互動。');
+      if (!canSendQuickInteraction(this.reactionSentAt.get(0), now))
+        throw new Error('太快啦！請稍等 3 秒再發送。');
+      this.reactionSentAt.set(0, now);
+      this.broadcastReaction(0, id);
+      return;
+    }
+    if (this.mode !== 'guest' || !this.connected || this.view?.game?.status !== 'playing')
+      throw new Error('尚未連線到進行中的房間。');
+    if (!canSendQuickInteraction(this.localReactionSentAt, now))
+      throw new Error('太快啦！請稍等 3 秒再發送。');
+    if (!this.transport.sendGuest({ type: 'reaction', id }))
+      throw new Error('未能送出泡泡，請檢查連線。');
+    this.localReactionSentAt = now;
   }
   sendTurn(action, draft = null) {
     if (this.mode !== 'guest' || !this.connected || this.pending || !this.view || !this.view.game) throw new Error('尚未與房主同步，不能出牌。');
@@ -356,5 +411,7 @@ export class OnlineController {
     this.knownRevision = -1;
     this.code = '';
     this.seat = 0;
+    this.reactionSentAt.clear();
+    this.localReactionSentAt = null;
   }
 }
