@@ -9,13 +9,13 @@ export function describeRoomJoin({ active=false, isHost=false, connected=false,
       : '✅ 多人對局已開始。'
   };
   if (!connected) {
-    const problem = /錯誤|失敗|無法|拒絕|上限|斷線|中斷|timeout|error/i.test(lastStatus);
+    const problem = /錯誤|失敗|無法|拒絕|上限|斷線|中斷|逾時|不可用|timeout|error/i.test(lastStatus);
     return {
       kind: problem ? 'problem' : 'waiting',
       seatLabel:'｜正在確認座位', canRetry:true,
       notice: problem
         ? `⚠️ ${lastStatus}。請按下方「重新連線」，必要時請房主保持房間頁面開啟。`
-        : '⏳ 正在連線房主，尚未完成加入。若長時間沒有回應，可按「重新連線」。'
+        : `⏳ ${lastStatus || '正在連線房主'}。尚未完成加入；若長時間無回應，可按「重新連線」。`
     };
   }
   return {

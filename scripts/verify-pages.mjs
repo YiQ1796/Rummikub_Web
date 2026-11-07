@@ -6,9 +6,9 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const required = [
   'index.html', '.nojekyll', 'assets/styles.css', 'assets/art-config.js',
-  'src/main.js', 'src/quick-chat.js', 'src/fixed-game-config.js', 'src/resume-choice.js', 'src/room-join-status.js', 'src/room-roster.js', 'src/tile-order.js', 'src/match-result.js', 'src/online-core.js', 'src/peer-room.js', 'src/online-controller.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
+  'src/main.js', 'src/quick-chat.js', 'src/fixed-game-config.js', 'src/resume-choice.js', 'src/room-join-status.js', 'src/room-roster.js', 'src/tile-order.js', 'src/match-result.js', 'src/online-core.js', 'src/relay-transport.js', 'src/peer-room.js', 'src/online-controller.js', 'src/rules.js', 'src/game.js', 'src/ai.js',
   'assets/jokers/joker_sanmao_smile.webp', 'assets/jokers/joker_sanmao_smirk.webp',
-  'tests/quick-chat.test.mjs', 'tests/fixed-game-config.test.mjs', 'tests/resume-choice.test.mjs', 'tests/resume-controller.test.mjs', 'tests/room-roster.test.mjs', 'tests/room-join-status.test.mjs', 'tests/match-result.test.mjs', 'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/online-core.test.mjs', 'tests/online-integration.test.mjs', 'tests/tile-order.test.mjs',
+  'tests/quick-chat.test.mjs', 'tests/fixed-game-config.test.mjs', 'tests/resume-choice.test.mjs', 'tests/resume-controller.test.mjs', 'tests/room-roster.test.mjs', 'tests/room-join-status.test.mjs', 'tests/match-result.test.mjs', 'tests/game.test.mjs', 'tests/rules.test.mjs', 'tests/long-game.test.mjs', 'tests/online-core.test.mjs', 'tests/relay-transport.test.mjs', 'tests/online-integration.test.mjs', 'tests/tile-order.test.mjs',
 ];
 for (const relativePath of required) {
   assert.ok(existsSync(resolve(root, relativePath)), `Missing deploy file: ${relativePath}`);

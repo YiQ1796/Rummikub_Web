@@ -296,6 +296,8 @@ export class OnlineController {
       }
       this.seat = msg.seat;
       this.connected = true;
+      // An open socket alone is not successful admission.
+      this.transport?.confirmJoined?.();
       safeWrite(LAST_GUEST_KEY, JSON.stringify({code: this.code, name: this.name, seat: this.seat}));
       this.acceptSnapshot(msg.snapshot, true);
       this.emit(`已進入房間 ${this.code}，你是第 ${this.seat + 1} 位玩家。`);

@@ -38,6 +38,7 @@ jobs:
           node --check src/quick-chat.js
           node --check src/tile-order.js
           node --check src/online-core.js
+          node --check src/relay-transport.js
           node --check src/peer-room.js
           node --check src/online-controller.js
           node --check assets/art-config.js
